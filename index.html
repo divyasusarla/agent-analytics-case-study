@@ -1,0 +1,566 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Agent-Built Analytics Tooling</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700&family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  /* Layout idea: one reading column for the story, breaking out wide only for the two schematics (the setup and the lineage demo). */
+  :root {
+    --paper: #f3f5f8;
+    --panel: #ffffff;
+    --ink: #141c26;
+    --ink-soft: #4d5a6b;
+    --rule: #d5dbe4;
+    --accent: #1f46c9;
+    --accent-wash: #e6ebfb;
+    --hot: #b45a09;
+    --hot-wash: #fbeedd;
+    --active: #1c7a4c;
+    --active-wash: #e1f3ea;
+    --cold: #6b7787;
+    --cold-wash: #e9edf2;
+    --font-display: "Bricolage Grotesque", "Avenir Next", "Segoe UI", sans-serif;
+    --font-body: "IBM Plex Sans", "Segoe UI", system-ui, sans-serif;
+    --font-mono: "IBM Plex Mono", ui-monospace, "SF Mono", Menlo, monospace;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      color-scheme: dark;
+      --paper: #10151c;
+      --panel: #19202a;
+      --ink: #e8ecf2;
+      --ink-soft: #a1adbd;
+      --rule: #2d3745;
+      --accent: #8ea8ff;
+      --accent-wash: #1e2a4d;
+      --hot: #f0a65a;
+      --hot-wash: #3a2a17;
+      --active: #62c796;
+      --active-wash: #16322a;
+      --cold: #8793a3;
+      --cold-wash: #232b36;
+    }
+  }
+  :root[data-theme="dark"] {
+    color-scheme: dark;
+    --paper: #10151c;
+    --panel: #19202a;
+    --ink: #e8ecf2;
+    --ink-soft: #a1adbd;
+    --rule: #2d3745;
+    --accent: #8ea8ff;
+    --accent-wash: #1e2a4d;
+    --hot: #f0a65a;
+    --hot-wash: #3a2a17;
+    --active: #62c796;
+    --active-wash: #16322a;
+    --cold: #8793a3;
+    --cold-wash: #232b36;
+  }
+
+  * { box-sizing: border-box; }
+  html { -webkit-text-size-adjust: 100%; }
+  body {
+    margin: 0;
+    background: var(--paper);
+    color: var(--ink);
+    font-family: var(--font-body);
+    font-size: 17px;
+    line-height: 1.6;
+  }
+  main { padding: 56px 20px 80px; }
+  .col { max-width: 680px; margin-left: auto; margin-right: auto; }
+  .wide { max-width: 1080px; margin-left: auto; margin-right: auto; }
+  section { margin-top: 72px; }
+  h1, h2, h3 { font-family: var(--font-display); text-wrap: balance; margin: 0; }
+  h1 { font-size: clamp(2rem, 5vw, 3.1rem); line-height: 1.08; font-weight: 700; letter-spacing: -0.02em; }
+  h2 { font-size: 1.7rem; line-height: 1.2; font-weight: 700; letter-spacing: -0.01em; }
+  h3 { font-size: 1.12rem; line-height: 1.3; font-weight: 700; }
+  p { margin: 0; }
+  .stack { display: flex; flex-direction: column; gap: 16px; }
+  .label {
+    font-family: var(--font-mono);
+    font-size: 0.74rem;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--ink-soft);
+  }
+  .lede { font-size: 1.16rem; color: var(--ink-soft); }
+  .byline { display: flex; flex-wrap: wrap; gap: 6px 20px; font-family: var(--font-mono); font-size: 0.8rem; color: var(--ink-soft); }
+  .note {
+    border-left: 3px solid var(--accent);
+    background: var(--accent-wash);
+    padding: 14px 18px;
+    font-size: 0.93rem;
+  }
+  strong { font-weight: 600; }
+
+  /* Setup schematic */
+  .setup { display: grid; gap: 14px; margin-top: 28px; }
+  .agent {
+    background: var(--ink);
+    color: var(--paper);
+    padding: 20px 22px;
+    border-radius: 6px;
+    display: flex; flex-direction: column; gap: 6px;
+  }
+  .agent .label { color: inherit; opacity: 0.7; }
+  .agent p { font-size: 0.95rem; }
+  .wires { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; }
+  .wire, .ctx {
+    background: var(--panel);
+    border: 1px solid var(--rule);
+    border-radius: 6px;
+    padding: 16px 18px;
+    display: flex; flex-direction: column; gap: 6px;
+    font-size: 0.92rem;
+  }
+  .wire { border-top: 3px solid var(--accent); }
+  .wire p, .ctx p { color: var(--ink-soft); }
+  .ctxrow { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; }
+  .ctx { border-style: dashed; }
+  @media (max-width: 820px) {
+    .wires { grid-template-columns: 1fr; }
+    .ctxrow { grid-template-columns: 1fr 1fr; }
+  }
+  @media (max-width: 460px) { .ctxrow { grid-template-columns: 1fr; } }
+
+  /* Lineage demo */
+  .demo {
+    background: var(--panel);
+    border: 1px solid var(--rule);
+    border-radius: 8px;
+    margin-top: 28px;
+  }
+  .demo-bar {
+    display: flex; flex-wrap: wrap; align-items: center; gap: 10px 16px;
+    padding: 14px 18px;
+    border-bottom: 1px solid var(--rule);
+  }
+  .demo-bar .spacer { flex: 1 1 auto; }
+  .seg { display: inline-flex; border: 1px solid var(--rule); border-radius: 6px; overflow: hidden; }
+  .seg button {
+    font: 500 0.82rem var(--font-body);
+    color: var(--ink-soft);
+    background: transparent;
+    border: 0; border-right: 1px solid var(--rule);
+    padding: 7px 13px; cursor: pointer;
+  }
+  .seg button:last-child { border-right: 0; }
+  .seg button[aria-pressed="true"] { background: var(--ink); color: var(--paper); }
+  .linkbtn {
+    font: 500 0.82rem var(--font-body);
+    color: var(--accent); background: none; border: 0; padding: 7px 4px; cursor: pointer;
+    text-decoration: underline; text-underline-offset: 3px;
+  }
+  button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  .tally { font-family: var(--font-mono); font-size: 0.78rem; color: var(--ink-soft); font-variant-numeric: tabular-nums; }
+  .scroller { overflow-x: auto; }
+  .graph {
+    position: relative;
+    min-width: 1040px;
+    display: grid;
+    grid-template-columns: repeat(6, 1fr);
+    gap: 0 28px;
+    padding: 18px 18px 24px;
+  }
+  .graph svg { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; }
+  .graph path { fill: none; stroke: var(--rule); stroke-width: 1.4; transition: stroke 0.15s, opacity 0.15s; }
+  .graph path.on { stroke: var(--accent); stroke-width: 2; }
+  .graph path.off { opacity: 0.25; }
+  .lane { display: flex; flex-direction: column; gap: 8px; position: relative; z-index: 1; }
+  .lane .label { padding-bottom: 6px; }
+  .node {
+    text-align: left;
+    font: 500 0.72rem/1.3 var(--font-mono);
+    color: var(--ink);
+    background: var(--paper);
+    border: 1px solid var(--rule);
+    border-radius: 5px;
+    padding: 8px 10px;
+    cursor: pointer;
+    display: flex; flex-direction: column; gap: 3px;
+    overflow-wrap: break-word;
+    transition: opacity 0.15s, border-color 0.15s;
+  }
+  .node small { font: 400 0.7rem var(--font-mono); color: var(--ink-soft); font-variant-numeric: tabular-nums; }
+  .node.hot { border-left: 4px solid var(--hot); background: var(--hot-wash); }
+  .node.active { border-left: 4px solid var(--active); background: var(--active-wash); }
+  .node.cold { border-left: 4px solid var(--cold); background: var(--cold-wash); }
+  .node.on { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent); }
+  .node.sel { background: var(--accent); color: var(--paper); border-color: var(--accent); }
+  .node.sel small { color: inherit; opacity: 0.8; }
+  .node.off { opacity: 0.28; }
+  .node.hide { display: none; }
+  .legend { display: flex; flex-wrap: wrap; gap: 8px 18px; padding: 12px 18px; border-top: 1px solid var(--rule); font-size: 0.8rem; color: var(--ink-soft); }
+  .key { display: inline-flex; align-items: center; gap: 7px; }
+  .key i { width: 12px; height: 12px; border-radius: 2px; display: inline-block; }
+  .k-hot { background: var(--hot); } .k-active { background: var(--active); } .k-cold { background: var(--cold); }
+
+  /* Builds */
+  .builds { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; margin-top: 28px; }
+  @media (max-width: 900px) { .builds { grid-template-columns: 1fr; } }
+  .build {
+    background: var(--panel);
+    border: 1px solid var(--rule);
+    border-radius: 8px;
+    padding: 22px;
+    display: flex; flex-direction: column; gap: 12px;
+    font-size: 0.94rem;
+  }
+  .build dl { margin: 0; display: flex; flex-direction: column; gap: 10px; }
+  .build dt { font-family: var(--font-mono); font-size: 0.7rem; letter-spacing: 0.08em; text-transform: uppercase; color: var(--ink-soft); }
+  .build dd { margin: 2px 0 0; }
+
+  .facts { display: grid; grid-template-columns: repeat(3, 1fr); gap: 0; border: 1px solid var(--rule); border-radius: 8px; background: var(--panel); margin-top: 8px; }
+  .facts div { padding: 16px 18px; border-right: 1px solid var(--rule); font-size: 0.9rem; color: var(--ink-soft); }
+  .facts div:last-child { border-right: 0; }
+  .facts b { display: block; font: 700 1.5rem/1.1 var(--font-display); color: var(--ink); font-variant-numeric: tabular-nums; margin-bottom: 4px; }
+  @media (max-width: 560px) {
+    .facts { grid-template-columns: 1fr; }
+    .facts div { border-right: 0; border-bottom: 1px solid var(--rule); }
+    .facts div:last-child { border-bottom: 0; }
+  }
+
+  .rules { list-style: none; margin: 8px 0 0; padding: 0; display: flex; flex-direction: column; }
+  .rules li { display: grid; grid-template-columns: 44px 1fr; gap: 4px 12px; padding: 20px 0; border-top: 1px solid var(--rule); }
+  .rules li:last-child { border-bottom: 1px solid var(--rule); }
+  .rules .n { font: 500 0.85rem var(--font-mono); color: var(--accent); padding-top: 3px; }
+  .rules p { grid-column: 2; color: var(--ink-soft); font-size: 0.96rem; }
+  .rules h3 { grid-column: 2; }
+
+  footer { margin-top: 72px; padding-top: 22px; border-top: 1px solid var(--rule); font-size: 0.86rem; color: var(--ink-soft); }
+  @media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+</style>
+</head>
+<body>
+<main>
+
+  <header class="col stack">
+    <p class="label">Case study, analytics tooling built with an AI agent</p>
+    <h1>I connected an AI agent to a live analytics stack and used it to build the tools my team needed.</h1>
+    <p class="lede">Over 32 days on the data team at a subscription streaming service, I worked with a coding agent that could read our transformation code, query the warehouse, and create content in our BI tool. This page shows what came out of that, and the working rules that made the output trustworthy.</p>
+    <div class="byline">
+      <span>Divya Susarla</span>
+      <span>April to May 2026</span>
+      <span>25 agent sessions, 1,045 messages</span>
+    </div>
+    <p class="note"><strong>Confidentiality.</strong> The employer is not named. Table, dashboard, title and people names are removed or replaced, and business figures are left out. The interactive demo below runs on invented data.</p>
+  </header>
+
+  <section class="wide">
+    <div class="col stack">
+      <p class="label">The setup</p>
+      <h2>An agent with hands in three systems</h2>
+      <p>The difference between this and a chat window is access. The agent ran inside the project repository and reached the rest of the stack through Model Context Protocol (MCP) connections, so it could inspect the real thing instead of reasoning from what I pasted in.</p>
+    </div>
+    <div class="setup">
+      <div class="agent">
+        <span class="label">Agent</span>
+        <h3>Claude Code, running in the analytics repository</h3>
+        <p>Reads and edits files, runs shell and git commands, writes and executes scripts, and calls the three connections below.</p>
+      </div>
+      <div class="wires">
+        <div class="wire">
+          <span class="label">Connection 1, transformation</span>
+          <h3>dbt project</h3>
+          <p>Model details, dependency lineage, parse, build, and row previews.</p>
+        </div>
+        <div class="wire">
+          <span class="label">Connection 2, warehouse</span>
+          <h3>Snowflake</h3>
+          <p>SQL against production tables, read-only by default.</p>
+        </div>
+        <div class="wire">
+          <span class="label">Connection 3, BI layer</span>
+          <h3>Looker</h3>
+          <p>Run queries, read and edit the semantic model, create dashboards, and query the tool's own usage logs.</p>
+        </div>
+      </div>
+      <div class="ctxrow">
+        <div class="ctx">
+          <span class="label">Context</span>
+          <h3>Project instructions</h3>
+          <p>Business vocabulary, event definitions, naming and environment conventions, loaded every session.</p>
+        </div>
+        <div class="ctx">
+          <span class="label">Context</span>
+          <h3>Persistent memory</h3>
+          <p>Working rules and lessons from earlier sessions, so I stopped re-explaining them.</p>
+        </div>
+        <div class="ctx">
+          <span class="label">Context</span>
+          <h3>Project skill</h3>
+          <p>A reusable procedure for investigating gaps in pipeline data, triggered by name.</p>
+        </div>
+        <div class="ctx">
+          <span class="label">Context</span>
+          <h3>Two repositories</h3>
+          <p>Transformation code and BI code mounted together, so one question could span both.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="wide">
+    <div class="col stack">
+      <p class="label">Build 1</p>
+      <h2>A lineage explorer that showed what was safe to delete</h2>
+      <p>The team was planning a cleanup of the BI layer and needed to know, for every dashboard, which data it depended on and whether anyone still opened it. A colleague had already mapped one data domain. I built the second domain's map with the agent, as a single self-contained HTML file anyone could open in a browser.</p>
+      <p>The agent traced every dependency reference in the transformation code, opened each view definition in the BI project to confirm which table it read from, then queried the BI tool's usage logs to bind every dashboard tile and saved report to the explore it runs on. I had it pull 30-day usage straight into the file instead of handing me CSVs to merge.</p>
+      <p>The first version guessed the dashboard wiring from dashboard titles. I asked which parts were inferred and had every one of them verified against the logs. That pass corrected seven mappings, added nine dashboards the guess had missed, and removed five that did not belong. I also caught that its usage metric counted tile queries, where the existing map counted dashboard loads, and had it matched so the two maps could be read side by side.</p>
+    </div>
+
+    <div class="demo" id="demo">
+      <div class="demo-bar">
+        <span class="label">Reconstruction, invented names and numbers</span>
+        <span class="spacer"></span>
+        <div class="seg" role="group" aria-label="Filter dashboards by usage">
+          <button type="button" id="f-all" data-f="all" aria-pressed="true">All</button>
+          <button type="button" id="f-used" data-f="used" aria-pressed="false">Used</button>
+          <button type="button" id="f-cold" data-f="cold" aria-pressed="false">Cold</button>
+        </div>
+        <button type="button" class="linkbtn" id="clear">Clear trace</button>
+      </div>
+      <div class="scroller">
+        <div class="graph" id="graph"><svg id="edges" aria-hidden="true"></svg></div>
+      </div>
+      <div class="legend">
+        <span class="key"><i class="k-hot"></i>Hot, 30 or more loads in 30 days</span>
+        <span class="key"><i class="k-active"></i>Active, 1 to 29</span>
+        <span class="key"><i class="k-cold"></i>Cold, 0</span>
+        <span class="spacer" style="flex:1 1 auto"></span>
+        <span class="tally" id="tally"></span>
+      </div>
+    </div>
+
+    <div class="col stack" style="margin-top:28px">
+      <p>Click any node to trace everything upstream and downstream of it. Filter to Cold and the cleanup list writes itself. The original covered dozens of dashboards and well over a hundred saved reports, and it showed that more than half of those dashboards and roughly nine in ten of the saved reports had gone unused for a month.</p>
+      <p><strong>What it saved:</strong> the alternative was opening each dashboard and saved report one at a time to see what it queried. The team used the maps as the basis for the cleanup, and I drafted a phased cleanup outline from the two of them.</p>
+    </div>
+  </section>
+
+  <section class="wide">
+    <div class="col stack">
+      <p class="label">Builds 2 to 4</p>
+      <h2>Three more, same method</h2>
+    </div>
+    <div class="builds">
+      <article class="build">
+        <h3>Tracing a customer count that would not reconcile</h3>
+        <dl>
+          <div><dt>Problem</dt><dd>A query for active customers came in well under the reference figure, and I was asked to find out where the missing group went.</dd></div>
+          <div><dt>What the agent did</dt><dd>Annotated the SQL line by line, ran it against the warehouse, and tested the cohort logic against the underlying models.</dd></div>
+          <div><dt>Outcome</dt><dd>The gap was a filter that anchored on free-trial starts, which silently dropped customers who began on a paid plan and customers who returned. I delivered a corrected query, then adjusted it again to match the stakeholder's own formula exactly.</dd></div>
+        </dl>
+      </article>
+      <article class="build">
+        <h3>A refresh timeline generated from the pipeline's own config</h3>
+        <dl>
+          <div><dt>Problem</dt><dd>The team needed a clear picture of when each day's data actually lands, across several scheduled jobs.</dd></div>
+          <div><dt>What the agent did</dt><dd>Read the ingestion schedule, the scheduled transformation runs and the freshness thresholds from the repository, then wrote a Python script that renders them as one timeline across three data domains.</dd></div>
+          <div><dt>Outcome</dt><dd>A chart in the team's time zone, with the generator script saved next to it so it can be re-run when schedules change. The follow-up was a proposal for a daily completeness check that posts to Slack.</dd></div>
+        </dl>
+      </article>
+      <article class="build">
+        <h3>A stakeholder dashboard built through the BI tool's API</h3>
+        <dl>
+          <div><dt>Problem</dt><dd>A stakeholder asked for a content ranking view built on a new definition of early viewing.</dd></div>
+          <div><dt>What the agent did</dt><dd>Copied the existing dashboard into my folder, built replacement tiles and filters through the BI connection, and ran a QA pass on the numbers before handoff.</dd></div>
+          <div><dt>Outcome</dt><dd>A first version on the fields that already existed, then a rebuild on the new model the data engineering team shipped, with an explainer tile so readers know what they are looking at.</dd></div>
+        </dl>
+      </article>
+    </div>
+    <div class="col stack" style="margin-top:28px">
+      <p>The same setup also produced the planning work for the larger goal: rebuilding the warehouse so that a conversational agent could answer business questions accurately. I reviewed the rebuild's planning documents for what an agent would need, and my pull requests added a business glossary and a metric registry to the requirements, so that definitions live in machine-readable form beside the code. The project plan I drafted includes a test bench of stakeholder questions with known correct answers, to catch documentation gaps before anyone relies on the agent.</p>
+    </div>
+  </section>
+
+  <section class="col stack">
+    <p class="label">Working rules</p>
+    <h2>What made the agent's output usable</h2>
+    <p>An agent with access produces plausible work fast, and plausible is the risk. Claude Code's own usage report for the month counted 13 times I redirected a wrong approach. These are the rules that came out of those corrections.</p>
+    <div class="facts">
+      <div><b>7</b>dashboard mappings wrong before the verification pass</div>
+      <div><b>13</b>wrong approaches caught and redirected</div>
+      <div><b>9</b>dashboards the first pass had missed entirely</div>
+    </div>
+    <ol class="rules">
+      <li><span class="n">01</span><h3>Make it say what it inferred</h3><p>Every artifact gets the question: which parts did you verify and which did you guess? On the lineage map, the guessed parts were the ones that were wrong.</p></li>
+      <li><span class="n">02</span><h3>Read the whole source first</h3><p>On a forecasting spec, the agent critiqued the document after reading one tab of two multi-tab workbooks. I stopped it and had it reread everything before either of us drew conclusions.</p></li>
+      <li><span class="n">03</span><h3>Use the stakeholder's formula, not a reasonable substitute</h3><p>Twice the agent chose a metric that was defensible and different from the one the business already used. Matching the existing definition is what makes a number comparable.</p></li>
+      <li><span class="n">04</span><h3>Ask whether it is a permissions problem before adding a tool</h3><p>When a metadata pull failed, the suggestion was to install a second connector described as official. I asked for confirmation, and it turned out to be a third-party package. The likelier cause was access scope on the connector we already had.</p></li>
+      <li><span class="n">05</span><h3>Write the lesson where the agent will load it</h3><p>After one difficult request I wrote up what went wrong on both sides and had it saved to persistent memory, so later sessions started with those rules already loaded.</p></li>
+    </ol>
+  </section>
+
+  <footer class="col">
+    <p>How this page was made: I exported my own agent sessions to CSV, had them parsed into a browsable archive, and built this case study from that record with identifying details removed. The lineage demo is a reconstruction of the original tool's behavior on invented data.</p>
+  </footer>
+
+</main>
+
+<script>
+(function () {
+  var lanes = [
+    { id: "src",  name: "Source and staging" },
+    { id: "int",  name: "Intermediate" },
+    { id: "mart", name: "Marts" },
+    { id: "view", name: "BI views" },
+    { id: "exp",  name: "Explores" },
+    { id: "dash", name: "Dashboards" }
+  ];
+  var nodes = [
+    { id: "raw",  lane: "src",  name: "raw.viewing_events" },
+    { id: "stg",  lane: "src",  name: "stg_viewing" },
+    { id: "cat",  lane: "src",  name: "stg_catalog" },
+    { id: "icat", lane: "int",  name: "int_catalog_titles" },
+    { id: "ises", lane: "int",  name: "int_viewing_sessions" },
+    { id: "m1",   lane: "mart", name: "mart_viewing" },
+    { id: "m2",   lane: "mart", name: "mart_title_daily" },
+    { id: "m3",   lane: "mart", name: "mart_viewer_journey" },
+    { id: "m4",   lane: "mart", name: "mart_episode_dropoff" },
+    { id: "v1",   lane: "view", name: "viewing" },
+    { id: "v2",   lane: "view", name: "title_daily" },
+    { id: "v3",   lane: "view", name: "viewer_journey" },
+    { id: "v4",   lane: "view", name: "episode_dropoff" },
+    { id: "e1",   lane: "exp",  name: "Viewing", q: 3400 },
+    { id: "e2",   lane: "exp",  name: "Title Engagement", q: 2900 },
+    { id: "e3",   lane: "exp",  name: "Viewer Journeys", q: 48 },
+    { id: "e4",   lane: "exp",  name: "Episode Drop-off", q: 9 },
+    { id: "d1",   lane: "dash", name: "Title Leaderboard", loads: 132, tiles: 9 },
+    { id: "d2",   lane: "dash", name: "Weekly Engagement", loads: 61, tiles: 7 },
+    { id: "d3",   lane: "dash", name: "New Viewer Paths", loads: 17, tiles: 5 },
+    { id: "d4",   lane: "dash", name: "Launch Week Recap", loads: 4, tiles: 6 },
+    { id: "d5",   lane: "dash", name: "Engagement Overview (copy)", loads: 0, tiles: 21 },
+    { id: "d6",   lane: "dash", name: "Active Viewers, all titles", loads: 0, tiles: 8 },
+    { id: "d7",   lane: "dash", name: "Season Finale Performance", loads: 0, tiles: 12 },
+    { id: "d8",   lane: "dash", name: "Episode Completion v1", loads: 0, tiles: 4 }
+  ];
+  var edges = [
+    ["raw","stg"],["stg","ises"],["cat","icat"],["icat","ises"],
+    ["ises","m1"],["ises","m2"],["ises","m4"],["icat","m2"],["m1","m3"],
+    ["m1","v1"],["m2","v2"],["m3","v3"],["m4","v4"],
+    ["v1","e1"],["v2","e2"],["v2","e1"],["v3","e3"],["v4","e4"],
+    ["e1","d1"],["e2","d1"],["e2","d2"],["e3","d3"],["e1","d4"],
+    ["e1","d5"],["e1","d6"],["e2","d7"],["e4","d7"],["e4","d8"]
+  ];
+
+  var graph = document.getElementById("graph");
+  var svg = document.getElementById("edges");
+  var tally = document.getElementById("tally");
+  var els = {}, selected = "m2", filter = "all";
+
+  function usage(n) {
+    if (n.lane !== "dash") return "";
+    return n.loads >= 30 ? "hot" : n.loads > 0 ? "active" : "cold";
+  }
+
+  lanes.forEach(function (l) {
+    var col = document.createElement("div");
+    col.className = "lane";
+    var h = document.createElement("span");
+    h.className = "label";
+    h.textContent = l.name;
+    col.appendChild(h);
+    nodes.filter(function (n) { return n.lane === l.id; }).forEach(function (n) {
+      var b = document.createElement("button");
+      b.type = "button";
+      b.className = "node " + usage(n);
+      b.id = "n-" + n.id;
+      var t = document.createElement("span");
+      t.textContent = n.name;
+      b.appendChild(t);
+      var sub = n.lane === "dash" ? n.loads + " loads, " + n.tiles + " tiles"
+              : n.lane === "exp" ? n.q.toLocaleString() + " queries" : "";
+      if (sub) { var s = document.createElement("small"); s.textContent = sub; b.appendChild(s); }
+      b.addEventListener("click", function () { selected = selected === n.id ? null : n.id; paint(); });
+      col.appendChild(b);
+      els[n.id] = b;
+    });
+    graph.appendChild(col);
+  });
+
+  function walk(start, dir) {
+    var seen = {}, stack = [start];
+    while (stack.length) {
+      var cur = stack.pop();
+      edges.forEach(function (e) {
+        var from = dir > 0 ? e[0] : e[1], to = dir > 0 ? e[1] : e[0];
+        if (from === cur && !seen[to]) { seen[to] = true; stack.push(to); }
+      });
+    }
+    return seen;
+  }
+
+  function visible(n) {
+    if (n.lane !== "dash" || filter === "all") return true;
+    return filter === "cold" ? n.loads === 0 : n.loads > 0;
+  }
+
+  function paint() {
+    var lit = null;
+    if (selected) {
+      lit = {}; lit[selected] = true;
+      var up = walk(selected, -1), down = walk(selected, 1);
+      Object.keys(up).forEach(function (k) { lit[k] = true; });
+      Object.keys(down).forEach(function (k) { lit[k] = true; });
+    }
+    nodes.forEach(function (n) {
+      var el = els[n.id];
+      el.classList.toggle("hide", !visible(n));
+      el.classList.toggle("sel", n.id === selected);
+      el.classList.toggle("on", !!lit && !!lit[n.id] && n.id !== selected);
+      el.classList.toggle("off", !!lit && !lit[n.id]);
+      el.setAttribute("aria-pressed", n.id === selected ? "true" : "false");
+    });
+    draw(lit);
+    var d = nodes.filter(function (n) { return n.lane === "dash"; });
+    var hot = d.filter(function (n) { return n.loads >= 30; }).length;
+    var cold = d.filter(function (n) { return n.loads === 0; }).length;
+    tally.textContent = d.length + " dashboards: " + hot + " hot, " + (d.length - hot - cold) + " active, " + cold + " cold";
+  }
+
+  function draw(lit) {
+    var box = graph.getBoundingClientRect();
+    svg.setAttribute("viewBox", "0 0 " + box.width + " " + box.height);
+    var out = "";
+    edges.forEach(function (e) {
+      var a = els[e[0]], b = els[e[1]];
+      if (a.classList.contains("hide") || b.classList.contains("hide")) return;
+      var ra = a.getBoundingClientRect(), rb = b.getBoundingClientRect();
+      var x1 = ra.right - box.left, y1 = ra.top + ra.height / 2 - box.top;
+      var x2 = rb.left - box.left, y2 = rb.top + rb.height / 2 - box.top;
+      if (x2 < x1) { x1 = ra.left + ra.width / 2 - box.left; y1 = ra.bottom - box.top; x2 = rb.left + rb.width / 2 - box.left; y2 = rb.top - box.top;
+        out += '<path class="' + cls(e, lit) + '" d="M' + x1 + " " + y1 + " L" + x2 + " " + y2 + '"/>'; return; }
+      var mx = (x1 + x2) / 2;
+      out += '<path class="' + cls(e, lit) + '" d="M' + x1 + " " + y1 + " C" + mx + " " + y1 + " " + mx + " " + y2 + " " + x2 + " " + y2 + '"/>';
+    });
+    svg.innerHTML = out;
+  }
+  function cls(e, lit) { return !lit ? "" : (lit[e[0]] && lit[e[1]]) ? "on" : "off"; }
+
+  ["f-all", "f-used", "f-cold"].forEach(function (id) {
+    document.getElementById(id).addEventListener("click", function () {
+      filter = this.getAttribute("data-f");
+      ["f-all", "f-used", "f-cold"].forEach(function (o) {
+        var el = document.getElementById(o);
+        el.setAttribute("aria-pressed", el === this ? "true" : "false");
+      }, this);
+      var sel = selected && nodes.filter(function (n) { return n.id === selected; })[0];
+      if (sel && !visible(sel)) selected = null;
+      paint();
+    });
+  });
+  document.getElementById("clear").addEventListener("click", function () { selected = null; paint(); });
+  window.addEventListener("resize", function () { paint(); });
+  if (document.fonts && document.fonts.ready) { document.fonts.ready.then(paint); }
+  paint();
+})();
+</script>
+</body>
+</html>
